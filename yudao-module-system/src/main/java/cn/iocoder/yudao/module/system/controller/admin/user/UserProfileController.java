@@ -1,8 +1,11 @@
 package cn.iocoder.yudao.module.system.controller.admin.user;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.io.IoUtil;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.datapermission.core.annotation.DataPermission;
+import cn.iocoder.yudao.module.infra.controller.admin.file.vo.file.FileUploadReqVO;
+import cn.iocoder.yudao.module.infra.service.file.FileService;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileRespVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdatePasswordReqVO;
 import cn.iocoder.yudao.module.system.controller.admin.user.vo.profile.UserProfileUpdateReqVO;
@@ -21,9 +24,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.validation.Valid;
+import java.io.IOException;
 import java.util.List;
 
 import static cn.iocoder.yudao.framework.common.pojo.CommonResult.success;
@@ -46,6 +51,8 @@ public class UserProfileController {
     private PermissionService permissionService;
     @Resource
     private RoleService roleService;
+    @Resource
+    private FileService fileService;
 
     @GetMapping("/get")
     @Operation(summary = "获得登录用户信息")
@@ -74,6 +81,18 @@ public class UserProfileController {
     public CommonResult<Boolean> updateUserProfilePassword(@Valid @RequestBody UserProfileUpdatePasswordReqVO reqVO) {
         userService.updateUserPassword(getLoginUserId(), reqVO);
         return success(true);
+    }
+
+    @PutMapping("/update-avatar")
+    @Operation(summary = "上传头像")
+    public CommonResult<String> updateAvatar(@RequestParam("avatarFile") MultipartFile file) throws IOException {
+        byte[] content = IoUtil.readBytes(file.getInputStream());
+        String url = fileService.createFile(content, file.getOriginalFilename(),
+                "userImage", file.getContentType());
+        UserProfileUpdateReqVO reqVO = new UserProfileUpdateReqVO();
+        reqVO.setAvatar(url);
+        userService.updateUserProfile(getLoginUserId(), reqVO);
+        return success(url);
     }
 
 }

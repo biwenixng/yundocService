@@ -4,6 +4,7 @@ import cn.iocoder.yudao.framework.common.enums.UserTypeEnum;
 import cn.iocoder.yudao.framework.common.pojo.CommonResult;
 import cn.iocoder.yudao.framework.common.pojo.PageResult;
 import cn.iocoder.yudao.framework.common.util.object.BeanUtils;
+import cn.iocoder.yudao.module.infra.api.websocket.WebSocketSenderApi;
 import cn.iocoder.yudao.module.system.controller.admin.notify.vo.template.*;
 import cn.iocoder.yudao.module.system.dal.dataobject.notify.NotifyTemplateDO;
 import cn.iocoder.yudao.module.system.service.notify.NotifySendService;
@@ -11,7 +12,9 @@ import cn.iocoder.yudao.module.system.service.notify.NotifyTemplateService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jodd.util.StringUtil;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.util.StringUtils;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -31,6 +34,9 @@ public class NotifyTemplateController {
 
     @Resource
     private NotifySendService notifySendService;
+
+    @Resource
+    private WebSocketSenderApi webSocketSenderApi;
 
     @PostMapping("/create")
     @Operation(summary = "创建站内信模版")
@@ -77,12 +83,15 @@ public class NotifyTemplateController {
     @Operation(summary = "发送站内信")
     @PreAuthorize("@ss.hasPermission('system:notify-template:send-notify')")
     public CommonResult<Long> sendNotify(@Valid @RequestBody NotifyTemplateSendReqVO sendReqVO) {
+        CommonResult<Long>  result = new CommonResult<>();
         if (UserTypeEnum.MEMBER.getValue().equals(sendReqVO.getUserType())) {
-            return success(notifySendService.sendSingleNotifyToMember(sendReqVO.getUserId(),
+            result = success(notifySendService.sendSingleNotifyToMember(sendReqVO.getUserId(),
                     sendReqVO.getTemplateCode(), sendReqVO.getTemplateParams()));
         } else {
-            return success(notifySendService.sendSingleNotifyToAdmin(sendReqVO.getUserId(),
+            result = success(notifySendService.sendSingleNotifyToAdmin(sendReqVO.getUserId(),
                     sendReqVO.getTemplateCode(), sendReqVO.getTemplateParams()));
         }
+        webSocketSenderApi.sendObject(UserTypeEnum.ADMIN.getValue(),sendReqVO.getUserId(), "notify-push", new Object());
+        return result;
     }
 }
